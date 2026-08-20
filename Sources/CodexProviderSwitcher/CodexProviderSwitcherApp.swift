@@ -468,13 +468,19 @@ private struct ContentView: View {
         VStack(spacing: 0) {
             header
             Divider().opacity(0.6)
-            HSplitView {
+            // Plain HStack, not HSplitView: NSSplitView ignores SwiftUI
+            // min/ideal/max pane frames when the window resizes, which let
+            // the side panes explode and corrupted content layout. HStack
+            // keeps side panes clamped and gives extra width to the list.
+            HStack(spacing: 0) {
                 providerPane
-                    .frame(minWidth: 272, idealWidth: 312)
+                    .frame(minWidth: 272, idealWidth: 312, maxWidth: 360)
+                Divider()
                 historyPane
                     .frame(minWidth: 340, idealWidth: 430)
+                Divider()
                 detailPane
-                    .frame(minWidth: 284, idealWidth: 330)
+                    .frame(minWidth: 284, idealWidth: 330, maxWidth: 440)
             }
             .padding(.top, 10)
             .padding(.bottom, 12)
@@ -576,8 +582,10 @@ private struct ContentView: View {
                     .padding(.top, 2)
             }
             .padding(.horizontal, 12)
-            .animation(contentAnimation, value: model.message)
         }
+        // Keep animation modifiers OUTSIDE the ScrollView; applying them to
+        // its content is fragile when the pane resizes.
+        .animation(contentAnimation, value: model.message)
     }
 
     private var defaultProviderCard: some View {
@@ -644,7 +652,6 @@ private struct ContentView: View {
                             accountRow(account)
                         }
                     }
-                    .animation(contentAnimation, value: model.activeEmail)
                 }
 
                 Button {
