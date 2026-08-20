@@ -9,7 +9,7 @@ struct CodexProviderSwitcherApp: App {
         WindowGroup {
             ContentView()
         }
-        .defaultSize(width: 980, height: 640)
+        .defaultSize(width: 1040, height: 680)
         .windowResizability(.contentMinSize)
     }
 }
@@ -221,6 +221,172 @@ private final class ProviderViewModel: ObservableObject {
     }
 }
 
+// MARK: - Design tokens
+
+private enum Style {
+    static let cardRadius: CGFloat = 12
+    static let chipRadius: CGFloat = 8
+    static let cardPadding: CGFloat = 14
+
+    static var cardBackground: Color { Color(nsColor: .controlBackgroundColor) }
+    static var hairline: Color { Color.primary.opacity(0.08) }
+
+    static var avatarPalette: [Color] { [.blue, .purple, .pink, .teal, .indigo, .orange] }
+
+    static func avatarColor(for email: String) -> Color {
+        let hash = email.lowercased().unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0x7fffffff }
+        return avatarPalette[hash % avatarPalette.count]
+    }
+}
+
+/// A rounded, elevated container used instead of plain GroupBox.
+private struct Card<Content: View>: View {
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        content
+            .padding(cardInset)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: Style.cardRadius, style: .continuous)
+                    .fill(Style.cardBackground)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: Style.cardRadius, style: .continuous)
+                    .strokeBorder(Style.hairline)
+            )
+    }
+
+    private var cardInset: EdgeInsets {
+        EdgeInsets(top: Style.cardPadding, leading: Style.cardPadding, bottom: Style.cardPadding, trailing: Style.cardPadding)
+    }
+}
+
+private struct SectionHeader: View {
+    let title: String
+    let systemImage: String
+    var badge: String?
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: systemImage)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.tint)
+            Text(title)
+                .font(.subheadline.weight(.semibold))
+            if let badge {
+                Text(badge)
+                    .font(.caption2.weight(.bold).monospacedDigit())
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.accentColor.opacity(0.14)))
+                    .foregroundStyle(.tint)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+private struct ModeBadge: View {
+    let mode: ProviderMode
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(color)
+                .frame(width: 7, height: 7)
+            Text(mode.displayName)
+                .font(.callout.weight(.semibold))
+        }
+        .padding(.horizontal, 11)
+        .padding(.vertical, 5)
+        .background(Capsule().fill(color.opacity(0.13)))
+        .foregroundStyle(color)
+    }
+
+    private var color: Color {
+        switch mode {
+        case .official: .green
+        case .proxy: .indigo
+        case .custom: .orange
+        }
+    }
+}
+
+private struct InfoRow: View {
+    let label: String
+    let value: String
+    var valueMonospaced = false
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value)
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .truncationMode(.middle)
+        }
+        .font(.callout)
+    }
+}
+
+private struct SuccessPill: View {
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: "checkmark.circle.fill")
+            .font(.callout.weight(.medium))
+            .foregroundStyle(.green)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(RoundedRectangle(cornerRadius: Style.chipRadius + 2, style: .continuous).fill(Color.green.opacity(0.08)))
+            .overlay(
+                RoundedRectangle(cornerRadius: Style.chipRadius + 2, style: .continuous)
+                    .strokeBorder(Color.green.opacity(0.28))
+            )
+    }
+}
+
+private struct SearchField: View {
+    @Binding var text: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.tertiary)
+            TextField("筛选标题或会话 ID", text: $text)
+                .textFieldStyle(.plain)
+                .font(.callout)
+            if !text.isEmpty {
+                Button {
+                    text = ""
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(
+            RoundedRectangle(cornerRadius: Style.chipRadius, style: .continuous)
+                .fill(Style.cardBackground)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: Style.chipRadius, style: .continuous)
+                .strokeBorder(Style.hairline)
+        )
+    }
+}
+
+// MARK: - Content
+
 private struct ContentView: View {
     @StateObject private var model = ProviderViewModel()
     @State private var pendingProvider: ProviderMode?
@@ -228,17 +394,19 @@ private struct ContentView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            Divider()
+            Divider().opacity(0.6)
             HSplitView {
                 providerPane
-                    .frame(minWidth: 250, idealWidth: 280)
+                    .frame(minWidth: 272, idealWidth: 312)
                 historyPane
-                    .frame(minWidth: 360, idealWidth: 430)
+                    .frame(minWidth: 340, idealWidth: 430)
                 detailPane
-                    .frame(minWidth: 270, idealWidth: 300)
+                    .frame(minWidth: 284, idealWidth: 330)
             }
-            .padding(12)
+            .padding(.top, 10)
+            .padding(.bottom, 12)
         }
+        .background(Color(nsColor: .windowBackgroundColor))
         .confirmationDialog(
             "切换默认提供方？",
             isPresented: Binding(
@@ -269,136 +437,291 @@ private struct ContentView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "arrow.triangle.2.circlepath")
-                .foregroundStyle(.tint)
-            Text("Codex 提供方切换")
-                .font(.headline)
+        HStack(spacing: 11) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [.blue, .indigo],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 28, height: 28)
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Codex 提供方切换")
+                    .font(.headline)
+                Text("本地提供方与官方账号管理")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
             Spacer()
             Button {
                 model.refresh()
             } label: {
                 Label("刷新", systemImage: "arrow.clockwise")
             }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
+    // MARK: Left pane
+
     private var providerPane: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            GroupBox("新建 Codex 会话默认设置") {
+        ScrollView {
+            VStack(spacing: 12) {
+                defaultProviderCard
+                accountsCard
+                if let message = model.message {
+                    SuccessPill(text: message)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                historyPickerCard
+                Text("不启动后台服务。账号切换会替换 auth.json，但界面永不显示令牌内容。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .padding(.top, 2)
+            }
+            .padding(.horizontal, 12)
+        }
+    }
+
+    private var defaultProviderCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionHeader(title: "新建会话默认", systemImage: "sparkles.rectangle.stack")
+
                 if let status = model.status {
-                    VStack(alignment: .leading, spacing: 8) {
-                        statusRow("提供方", status.mode.displayName)
-                        statusRow("模型", status.model ?? "Codex 默认")
-                        statusRow("响应存储", status.storageDescription)
-                        statusRow("代理", status.proxyConfigured ? "已配置" : "未配置")
-                        Divider()
-                        HStack {
-                            Button("设为官方") {
-                                pendingProvider = .official
-                            }
-                            .disabled(status.mode == .official)
-                            Button("设为代理") {
-                                pendingProvider = .proxy
-                            }
-                            .disabled(!status.proxyConfigured || status.mode == .proxy)
-                        }
+                    ModeBadge(mode: status.mode)
+
+                    VStack(spacing: 7) {
+                        InfoRow(label: "提供方", value: status.activeProvider)
+                        InfoRow(label: "模型", value: status.model ?? "Codex 默认")
+                        InfoRow(label: "响应存储", value: status.storageDescription)
+                        InfoRow(label: "代理", value: status.proxyConfigured ? "已配置" : "未配置")
                     }
-                    .padding(.vertical, 2)
+
+                    Divider()
+
+                    HStack(spacing: 8) {
+                        Button {
+                            pendingProvider = .official
+                        } label: {
+                            Label("设为官方", systemImage: "checkmark.seal")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .tint(.green)
+                        .buttonStyle(.bordered)
+                        .disabled(status.mode == .official)
+
+                        Button {
+                            pendingProvider = .proxy
+                        } label: {
+                            Label("设为代理", systemImage: "arrow.triangle.branch")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!status.proxyConfigured || status.mode == .proxy)
+                    }
                 } else {
                     ProgressView()
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
                 }
             }
+        }
+    }
 
-            GroupBox("官方账号") {
-                VStack(alignment: .leading, spacing: 8) {
-                    statusRow("当前登录", model.activeEmail ?? "未登录 / API Key 模式")
-                    statusRow("已保存账号", "\(model.accounts.count) 个")
-                    if !model.accounts.isEmpty {
-                        Divider()
+    private var accountsCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionHeader(
+                    title: "官方账号",
+                    systemImage: "person.2",
+                    badge: model.accounts.isEmpty ? nil : "\(model.accounts.count)"
+                )
+
+                InfoRow(label: "当前登录", value: model.activeEmail ?? "未登录 / API Key 模式")
+
+                if !model.accounts.isEmpty {
+                    Divider()
+                    VStack(spacing: 6) {
                         ForEach(model.accounts) { account in
                             accountRow(account)
                         }
                     }
-                    Button {
-                        model.captureAccount()
-                    } label: {
-                        Label(
-                            model.activeAccountIsStored ? "当前登录已保存" : "保存当前登录到账号库",
-                            systemImage: model.activeAccountIsStored ? "checkmark.circle.fill" : "person.badge.plus"
-                        )
-                    }
-                    .disabled(model.activeEmail == nil || model.activeAccountIsStored)
-                    Text("新账号：直接在终端执行 codex login 登录另一个邮箱，回到这里点“保存当前登录”。切勿先 codex logout——那会在服务端吊销当前账号的令牌，导致它保存的快照失效。切换只影响之后启动的 Codex；建议切换前关闭正在运行的会话。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                .padding(.vertical, 2)
-            }
 
-            if let message = model.message {
-                Label(message, systemImage: "checkmark.circle.fill")
-                    .font(.callout)
-                    .foregroundStyle(.green)
+                Button {
+                    model.captureAccount()
+                } label: {
+                    Label(
+                        model.activeAccountIsStored ? "当前登录已保存" : "保存当前登录到账号库",
+                        systemImage: model.activeAccountIsStored ? "checkmark.circle.fill" : "person.badge.plus"
+                    )
+                    .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(model.activeEmail == nil || model.activeAccountIsStored)
+
+                Text("新账号：直接在终端执行 codex login 登录另一个邮箱，回到这里点“保存当前登录”。切勿先 codex logout——那会在服务端吊销当前账号的令牌，导致它保存的快照失效。切换只影响之后启动的 Codex；建议切换前关闭正在运行的会话。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
                     .fixedSize(horizontal: false, vertical: true)
             }
-
-            GroupBox("官方历史") {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("无论当前默认提供方是什么，选择器都会以 OpenAI 打开。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("命令默认带有危险模式：跳过确认并关闭沙箱。")
-                            .font(.caption)
-                            .foregroundStyle(.orange)
-                        VStack(alignment: .leading, spacing: 6) {
-                        Button {
-                            model.launchPicker()
-                        } label: {
-                            Label("打开官方历史选择器", systemImage: "terminal")
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button {
-                            model.copyPickerCommand()
-                        } label: {
-                            Label("复制官方历史命令", systemImage: "doc.on.doc")
-                        }
-                    }
-                }
-                .padding(.vertical, 2)
-            }
-
-            Spacer(minLength: 0)
-            Text("不启动后台服务。账号切换会替换 auth.json，但界面永不显示令牌内容。")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
         }
     }
 
+    private var historyPickerCard: some View {
+        Card {
+            VStack(alignment: .leading, spacing: 10) {
+                SectionHeader(title: "官方历史", systemImage: "clock.arrow.circlepath")
+
+                Button {
+                    model.launchPicker()
+                } label: {
+                    Label("打开官方历史选择器", systemImage: "terminal")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+
+                Button {
+                    model.copyPickerCommand()
+                } label: {
+                    Label("复制官方历史命令", systemImage: "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Text("无论当前默认提供方是什么，选择器都会以 OpenAI 打开。")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Text("命令默认带有危险模式：跳过确认并关闭沙箱。")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private func accountRow(_ account: CodexAccount) -> some View {
+        let isActive = model.activeEmail?.lowercased() == account.email.lowercased()
+        let tint = Style.avatarColor(for: account.email)
+
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(tint.opacity(0.16))
+                    Text(String(account.email.prefix(1)).uppercased())
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(tint)
+                }
+                .frame(width: 30, height: 30)
+                .overlay(
+                    Circle()
+                        .stroke(isActive ? Color.green : .clear, lineWidth: 2)
+                        .padding(-3)
+                )
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(account.email)
+                            .font(.callout.weight(isActive ? .semibold : .regular))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        if isActive {
+                            Text("当前")
+                                .font(.caption2.weight(.bold))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(Capsule().fill(Color.green.opacity(0.15)))
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    if let lastUsed = account.lastUsedAt {
+                        Text("上次使用 \(lastUsed.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+
+                Spacer(minLength: 4)
+
+                if !isActive {
+                    Button {
+                        model.removeAccount(account)
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+                    .foregroundStyle(.red.opacity(0.75))
+                    .help("从账号库移除该登录")
+                }
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    model.copyOfficialCommandAs(account: account)
+                } label: {
+                    Label(isActive ? "复制官方命令" : "切换并复制官方命令", systemImage: "doc.on.doc")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .help(isActive ? "该账号已是当前登录，直接复制官方命令" : "切到该账号，并把官方命令复制到剪贴板")
+
+                if !isActive {
+                    Button("仅切换") {
+                        model.switchAccount(account)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
+            }
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: Style.chipRadius, style: .continuous)
+                .fill(isActive ? Color.green.opacity(0.06) : Color.primary.opacity(0.03))
+        )
+    }
+
+    // MARK: Middle pane
+
     private var historyPane: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
+        VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 7) {
+                Image(systemName: "clock")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.tint)
                 Text("本地历史")
-                    .font(.headline)
+                    .font(.subheadline.weight(.semibold))
                 Spacer()
                 Text("\(model.sessions.count)")
+                    .font(.caption2.weight(.bold).monospacedDigit())
                     .foregroundStyle(.secondary)
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 2)
+                    .background(Capsule().fill(Color.primary.opacity(0.06)))
             }
-            TextField("筛选标题或会话 ID", text: $model.searchText)
-                .textFieldStyle(.roundedBorder)
+
+            SearchField(text: $model.searchText)
+
             List(model.filteredSessions, selection: $model.selectedSessionID) { session in
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(session.title)
-                        .lineLimit(2)
-                    Text(session.updatedAt?.formatted(date: .abbreviated, time: .shortened) ?? "日期不可用")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .tag(session.id)
+                sessionRow(session)
+                    .tag(session.id)
             }
+            .listStyle(.plain)
+            .scrollContentBackground(.hidden)
             .overlay {
                 if model.filteredSessions.isEmpty {
                     ContentUnavailableView("没有匹配的历史", systemImage: "clock")
@@ -407,51 +730,106 @@ private struct ContentView: View {
         }
     }
 
+    private func sessionRow(_ session: CodexSession) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(session.title)
+                .font(.callout.weight(.medium))
+                .lineLimit(2)
+            Text(session.updatedAt?.formatted(date: .abbreviated, time: .shortened) ?? "日期不可用")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 5)
+        .padding(.horizontal, 6)
+        .contentShape(Rectangle())
+    }
+
+    // MARK: Right pane
+
     @ViewBuilder
     private var detailPane: some View {
         if let session = model.selectedSession {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("已选历史")
-                    .font(.headline)
-                Text(session.title)
-                    .font(.title3)
-                    .lineLimit(4)
-                Text(session.id)
-                    .font(.caption.monospaced())
-                    .textSelection(.enabled)
-                    .foregroundStyle(.secondary)
-                if let updatedAt = session.updatedAt {
-                    Text(updatedAt.formatted(date: .long, time: .shortened))
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    SectionHeader(title: "已选历史", systemImage: "clock.arrow.circlepath")
+
+                    Text(session.title)
+                        .font(.title3.weight(.semibold))
+                        .lineLimit(4)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 6) {
+                        Image(systemName: "number")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                        Text(session.id)
+                            .font(.system(.caption, design: .monospaced))
+                            .textSelection(.enabled)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(
+                        RoundedRectangle(cornerRadius: Style.chipRadius, style: .continuous)
+                            .fill(Color.primary.opacity(0.04))
+                    )
+
+                    if let updatedAt = session.updatedAt {
+                        Label(
+                            updatedAt.formatted(date: .long, time: .shortened),
+                            systemImage: "calendar"
+                        )
                         .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Divider()
-                Button("用代理继续") {
-                    model.launchSelected(provider: .proxy)
-                }
-                .buttonStyle(.borderedProminent)
-                Button("用官方继续") {
-                    model.launchSelected(provider: .official)
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    Button {
-                        model.copySelectedCommand(provider: .proxy)
-                    } label: {
-                        Label("复制代理恢复命令", systemImage: "doc.on.doc")
+                        .foregroundStyle(.tertiary)
                     }
-                    Button {
-                        model.copySelectedCommand(provider: .official)
-                    } label: {
-                        Label("复制官方恢复命令", systemImage: "doc.on.doc")
+
+                    Divider()
+
+                    VStack(spacing: 8) {
+                        Button {
+                            model.launchSelected(provider: .proxy)
+                        } label: {
+                            Label("用代理继续", systemImage: "arrow.triangle.branch")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            model.launchSelected(provider: .official)
+                        } label: {
+                            Label("用官方继续", systemImage: "checkmark.seal")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .tint(.green)
+                        .buttonStyle(.bordered)
+
+                        Button {
+                            model.copySelectedCommand(provider: .proxy)
+                        } label: {
+                            Label("复制代理恢复命令", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+
+                        Button {
+                            model.copySelectedCommand(provider: .official)
+                        } label: {
+                            Label("复制官方恢复命令", systemImage: "doc.on.doc")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
+
+                    Text("这些按钮只指定本次恢复会话所用的提供方，不会修改默认提供方。启动和复制的命令均会跳过确认并关闭沙箱。")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 0)
-                Text("这些按钮只指定本次恢复会话所用的提供方，不会修改默认提供方。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text("启动和复制的命令均会跳过确认并关闭沙箱。")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+                .padding(4)
             }
         } else {
             ContentUnavailableView(
@@ -460,55 +838,5 @@ private struct ContentView: View {
                 description: Text("选择本地 Codex 会话后，可以用官方提供方或代理继续。")
             )
         }
-    }
-
-    private func accountRow(_ account: CodexAccount) -> some View {
-        let isActive = model.activeEmail?.lowercased() == account.email.lowercased()
-        return HStack(spacing: 8) {
-            Image(systemName: isActive ? "checkmark.circle.fill" : "person.crop.circle")
-                .foregroundStyle(isActive ? Color.green : Color.secondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(account.email)
-                    .font(.caption)
-                    .lineLimit(1)
-                if let lastUsed = account.lastUsedAt {
-                    Text("上次使用 \(lastUsed.formatted(date: .abbreviated, time: .shortened))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Button {
-                model.copyOfficialCommandAs(account: account)
-            } label: {
-                Label(isActive ? "复制官方命令" : "切换并复制官方命令", systemImage: "doc.on.doc")
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.small)
-            .help(isActive ? "该账号已是当前登录，直接复制官方命令" : "切到该账号，并把官方命令复制到剪贴板")
-            Button("切换") {
-                model.switchAccount(account)
-            }
-            .disabled(isActive)
-            Button {
-                model.removeAccount(account)
-            } label: {
-                Image(systemName: "trash")
-            }
-            .buttonStyle(.borderless)
-            .disabled(isActive)
-            .help(isActive ? "使用中的账号不能删除" : "从账号库移除该登录")
-        }
-    }
-
-    private func statusRow(_ label: String, _ value: String) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text(value)
-                .multilineTextAlignment(.trailing)
-        }
-        .font(.caption)
     }
 }
