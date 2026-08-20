@@ -132,11 +132,6 @@ public final class CodexProviderService {
         self.fileManager = fileManager
     }
 
-    public func status() throws -> ProviderStatus {
-        let source = try readConfig()
-        return try status(from: source)
-    }
-
     public func listIndexedSessions() throws -> [CodexSession] {
         guard fileManager.fileExists(atPath: indexURL.path) else { return [] }
         let content = try String(contentsOf: indexURL, encoding: .utf8)
@@ -443,7 +438,19 @@ public final class CodexProviderService {
         return try String(contentsOf: configURL, encoding: .utf8)
     }
 
-    private func status(from source: String) throws -> ProviderStatus {
+    /// Reads config and the session index in a single pass for UI refresh,
+    /// so callers that need both do not parse the index file twice.
+    public func overview() throws -> (status: ProviderStatus, sessions: [CodexSession]) {
+        let sessions = try listIndexedSessions()
+        let status = try status(from: readConfig(), indexedSessionCount: sessions.count)
+        return (status, sessions)
+    }
+
+    public func status() throws -> ProviderStatus {
+        try status(from: readConfig(), indexedSessionCount: (try? listIndexedSessions().count) ?? 0)
+    }
+
+    private func status(from source: String, indexedSessionCount: Int = 0) throws -> ProviderStatus {
         let activeProvider = topLevelValue(in: source, key: "model_provider") ?? "openai"
         let proxyID = configuredProxyID(in: source)
         let mode: ProviderMode
@@ -461,7 +468,7 @@ public final class CodexProviderService {
             reviewModel: topLevelValue(in: source, key: "review_model"),
             responseStorageDisabled: topLevelBoolean(in: source, key: "disable_response_storage") ?? false,
             proxyConfigured: proxyID != nil,
-            indexedSessionCount: (try? listIndexedSessions().count) ?? 0
+            indexedSessionCount: indexedSessionCount
         )
     }
 
