@@ -2,12 +2,15 @@
 
 # Codex Provider Switcher
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 **A native macOS utility for the [Codex CLI](https://github.com/openai/codex): switch the default provider, resume any session through either provider, and juggle multiple ChatGPT accounts — without hand-editing TOML or losing logins.**
 
 ![platform](https://img.shields.io/badge/platform-macOS%2014%2B-000000)
 ![swift](https://img.shields.io/badge/Swift-5.10%2B-F05138?logo=swift)
 ![deps](https://img.shields.io/badge/dependencies-none-24B36B)
 ![runtime](https://img.shields.io/badge/runtime-no%20server%20%C2%B7%20no%20watcher%20%C2%B7%20no%20network-8E8E93)
+![license](https://img.shields.io/badge/license-MIT-26A69A)
 
 ![Codex Provider Switcher main window](docs/screenshot.png)
 
@@ -123,7 +126,7 @@ If it's declared as a `[model_providers.<id>]` table in `config.toml` with any I
 One-line switches are scripts; this app's value is the live status surface, the session browser, and safe snapshot management — things you want in a window you keep around, with keyboard shortcuts and zero runtime baggage.
 
 **Why is the UI in Chinese?**
-It started as a personal tool. English localization is a welcome contribution — the string surface is small and centralized.
+It started as a personal tool. The docs are bilingual ([简体中文](README.zh-CN.md)); English UI localization is a welcome contribution — the string surface is small and centralized.
 
 ## Development
 
